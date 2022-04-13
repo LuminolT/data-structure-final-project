@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.17)
 project(data_structure)
 
+# set(CMAKE_EXPORT_COMPILE_COMMANDS ON) 
+
 set(CMAKE_CXX_STANDARD 14)
 #set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
