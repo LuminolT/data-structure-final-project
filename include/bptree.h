@@ -75,20 +75,6 @@ void bptree<T, ORDER>::insert(int key, T value) {
                       cur_node.keys_.begin();
         cur_node = bpnode<T, ORDER>(cur_page_id, folder_name_);
     }
-    // while (!tmp_node.is_leaf_) {
-    //     auto tmp_node = bpnode<T, ORDER>(tmp_page_id, folder_name_);
-    //     // compare key value
-    //     for (int i = 0; i < tmp_node.key_num_; ++i) {
-    //         if (key < tmp_node.keys_[i]) {
-    //             tmp_page_id = tmp_node.sub_ptrs_[i];
-    //             break;
-    //         }
-    //     }
-    //     // if key is in the right-hand-side
-    //     if (tmp_page_id == tmp_node.page_id_) {
-    //         tmp_page_id = tmp_node.sub_ptrs_[tmp_node.key_num_ + 1];
-    //     }
-    // }
 
     // insert key-value
     if (cur_node.key_num_ < get_max_leaf_node_limit()) {
@@ -99,21 +85,7 @@ void bptree<T, ORDER>::insert(int key, T value) {
         cur_node.values_.insert(cur_node.values_.begin() + key_pos, value);
     } else {
         // split the nooooode
-        }
-    // if (key_num < ORDER - 1) {
-    //     tmp_node.insert_key_value(key, value);
-    // } else {  // no room for new key-value
-    //     // find left sibling
-    //     auto l_sib = bpnode<T, ORDER>(tmp_node.prev_page_, folder_name_);
-    //     // TODO: need split ~~~ & a global counter
-    //     if (l_sib.key_num_ < ORDER - 1) {
-    //         if (key < tmp_node.keys_[0]) {
-    //         }
-    //     }
-    //     // find right sibling
-    //     auto r_sib = bpnode<T, ORDER>(tmp_node.next_page_, folder_name_);
-    //     //
-    // }
+    }
 }
 
 #endif  // INCLUDE_BPTREE_H_
