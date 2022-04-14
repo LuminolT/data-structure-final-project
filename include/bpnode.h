@@ -7,90 +7,123 @@
 #include <variant>
 #include <vector>
 
-template <typename T>
+typedef int page_id_t;
+
+template <class T, std::size_t ORDER>
 class bpnode {
+    /*
+     *  B+Tree Node
+     * - A node can be either an internal node or a leaf node
+     * - Internal nodes have keys and pointers to child nodes
+     * - Leaf nodes have keys and values
+     */
   public:
+    page_id_t page_id_;
     bool is_leaf_;
     int key_num_;
     std::vector<int> keys_;
     int next_page_;
     int sub_ptr_num_;
-    std::variant<std::vector<T>, std::vector<int>> sub_ptrs_;
-    static std::string folder_name_;
+    std::vector<T>  values_;    // In case of same type, we don't use variant
+    std::vector<page_id_t> sub_ptrs_;
+    inline static const std::string folder_name_ = "data/";
 
     // constructor
-    bpnode(int page_id);
+    explicit bpnode(page_id_t page_id);
+
+    // destructor
+    ~bpnode();
 
     // override istream
-    friend std::istream &operator>>(std::istream &is, bpnode<T> &self);
+    std::istream &input (std::istream &is);
+    std::ostream &output (std::ostream &os);
+
+    friend std::istream &operator>> (std::istream &is, bpnode<T, ORDER> &self) {
+        return self.input(is);
+    }
 
     // override ostream
-    friend std::ostream &operator<<(const std::ostream &os, bpnode<T> &self);
+    friend std::ostream &operator<< (std::ostream &os, bpnode<T, ORDER> &self) {
+        return self.output(os);
+    }
 };
 
-template <typename T>
-bpnode<T>::bpnode(int page_id) {
-    if (this->folder_name_.empty()) {
-        throw std::runtime_error("folder_name is not set!");
-    }
-    auto file_name = this->folder_name_ + std::to_string(page_id);
+template<class T, std::size_t ORDER>
+bpnode<T, ORDER>::bpnode(int page_id) : page_id_(page_id) {
+    is_leaf_ = false;
+    key_num_ = 0;
+    next_page_ = -1;
+    sub_ptr_num_ = 0;
+    auto file_name = folder_name_ + std::to_string(page_id) + ".txt";
     std::ifstream file(file_name);
     if (!file.is_open()) {
-        throw std::runtime_error("file is not open!");
+        // throw std::runtime_error("file is not open!");
+        // init an empty node
+        return;
     }
     file >> *this;
     file.close();
 }
 
-template <typename T>
-std::istream &operator>>(std::istream &is, bpnode<T> &self) {
-    is >> self.is_leaf_;
-    is >> self.key_num_;
-    for (int i = 0; i < self.key_num_; ++i) {
+template<class T, std::size_t ORDER>
+bpnode<T, ORDER>::~bpnode() {
+    auto file_name = folder_name_ + std::to_string(page_id_) + ".txt";
+    std::ofstream file(file_name);
+//    if (!file.is_open()) {
+//         throw std::runtime_error("file is not open!");
+//    }
+    file << *this;
+    file.close();
+}
+
+template<class T, std::size_t ORDER>
+std::istream &bpnode<T, ORDER>::input(std::istream &is) {
+    is >> is_leaf_;
+    is >> key_num_;
+    for (int i = 0; i < key_num_; ++i) {
         int key;
         is >> key;
-        self.keys_.emplace_back(key);
+        keys_.emplace_back(key);
     }
-    is >> self.next_ptr_;
-    is >> self.sub_ptr_num_;
-    if (self.is_leaf_) {
-        std::vector<T> sub_ptrs;
-        for (int i = 0; i < self.sub_ptr_num_; ++i) {
+    is >> next_page_;
+    is >> sub_ptr_num_;
+    if (is_leaf_) {
+        for (int i = 0; i < sub_ptr_num_; ++i) {
             T sub_ptr;
             is >> sub_ptr;
-            sub_ptrs.emplace_back(sub_ptr);
+            values_ .emplace_back(sub_ptr);
         }
-        self.sub_ptrs_ = sub_ptrs;
     } else {
-        std::vector<int> sub_ptrs;
-        for (int i = 0; i < self.sub_ptr_num_; ++i) {
-            int sub_ptr;
+        for (int i = 0; i < sub_ptr_num_; ++i) {
+            page_id_t sub_ptr;
             is >> sub_ptr;
-            sub_ptrs.emplace_back(sub_ptr);
+            sub_ptrs_.emplace_back(sub_ptr);
         }
-        self.sub_ptrs_ = sub_ptrs;
     }
     return is;
 }
 
-template <typename T>
-std::ostream &operator<<(const std::ostream &os, bpnode<T> &self) {
-    os << self.is_leaf_ << std::endl;
-    os << self.key_num_ << std::endl;
-    for (int i = 0; i < self.key_num_; ++i) {
-        os << self.keys_[i] << std::endl;
+template<class T, std::size_t ORDER>
+std::ostream &bpnode<T, ORDER>::output(std::ostream &os) {
+    os << is_leaf_ << std::endl;
+    os << key_num_ << std::endl;
+    for (int i = 0; i < key_num_; ++i) {
+        os << keys_[i] << std::endl;
     }
-    os << os << self.next_ptr_;
-    os << self.sub_ptr_num_;
-    if (self.is_leaf_) {
-        for (int i = 0; i < self.sub_ptr_num_; ++i) {
-            os << std::get<T>(self.sub_ptrs_[i]) << std::endl;
+    os << next_page_ << std::endl;
+    os << sub_ptr_num_ << std::endl;
+    if (is_leaf_) {
+        for (int i = 0; i < sub_ptr_num_; ++i) {
+            os << values_[i] << std::endl;
         }
     } else {
-        for (int i = 0; i < self.sub_ptr_num_; ++i) {
-            os << std::get<int>(self.sub_ptrs_[i]) << std::endl;
+        for (int i = 0; i < sub_ptr_num_; ++i) {
+            os << sub_ptrs_[i] << std::endl;
         }
     }
+    return os;
 }
+
+
 
 #endif  // INCLUDE_BPNODE_H_
