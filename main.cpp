@@ -5,14 +5,14 @@
 #include <vector>
 
 #include "bpnode.h"
-//#include "bptree.h"
+#include "bptree.h"
 
 using namespace std;
 
 int main() {
-    bpnode<char, 5> root(1);
-//    bptree<int, 5> tree;
-//    tree.insert(1, 1);
-//    tree.insert(2, 2);
+    // bpnode<char, 5> root(1);
+    bptree<int, 5> tree("tree1");
+    tree.insert(1, 1);
+    //    tree.insert(2, 2);
     return 0;
 }
