@@ -17,7 +17,8 @@ class bptree {
     ~bptree();
 
     // Order related arguments
-    constexpr int get_max_internal_node_limit() { return ceil(ORDER / 2); }
+    // constexpr int get_max_internal_node_limit() { return ceil(ORDER / 2); }
+    constexpr int get_max_internal_node_limit() { return ORDER - 1; }
     constexpr int get_max_leaf_node_limit() { return ORDER - 1; }
 
     // Insert <key,value> to the B+ tree
@@ -58,7 +59,8 @@ bptree<T, ORDER>::bptree(std::string folder_name) {
 template <class T, std::size_t ORDER>
 bptree<T, ORDER>::~bptree() {
     std::ofstream root_file(folder_name_ + "/root.txt");
-    root_file << root_;
+    root_file << root_ << std::endl;
+    root_file << page_id_counter_ << std::endl;
     root_file.close();
 }
 
@@ -83,9 +85,11 @@ void bptree<T, ORDER>::insert(int key, T value) {
     // get the leaf node
     while (!cur_node.is_leaf_) {
         par_page_id = cur_page_id;
-        cur_page_id = std::upper_bound(cur_node.keys_.begin(),
-                                       cur_node.keys_.end(), key) -
-                      cur_node.keys_.begin();
+        cur_page_id =
+            cur_node.sub_ptrs_[std::upper_bound(cur_node.keys_.begin(),
+                                                cur_node.keys_.end(), key) -
+                               cur_node.keys_.begin()];
+        std::cout << cur_page_id << std::endl;
         cur_node = bpnode<T, ORDER>(cur_page_id, folder_name_);
     }
 
@@ -95,6 +99,7 @@ void bptree<T, ORDER>::insert(int key, T value) {
         cur_node.keys_.begin();
     cur_node.keys_.insert(cur_node.keys_.begin() + key_pos, key);
     cur_node.values_.insert(cur_node.values_.begin() + key_pos, value);
+    cur_node.key_num_++;
     if (cur_node.key_num_ >= get_max_leaf_node_limit()) {
         // NOW we have to split the nodes
         auto new_node = bpnode<T, ORDER>(++page_id_counter_, folder_name_);
@@ -114,7 +119,7 @@ void bptree<T, ORDER>::insert(int key, T value) {
         cur_node.values_.resize(floor(get_max_leaf_node_limit() / 2));
         cur_node.key_num_ = cur_node.keys_.size();
         // update the parent node
-        if (par_page_id == 1) {  // cur_node is the root node
+        if (cur_page_id == root_) {  // cur_node is the root node
             // create a new root
             auto new_root = bpnode<T, ORDER>(++page_id_counter_, folder_name_);
             new_root.is_leaf_ = false;
@@ -126,9 +131,12 @@ void bptree<T, ORDER>::insert(int key, T value) {
             new_root.next_page_ = new_root.page_id_;
             new_root.prev_page_ = new_root.page_id_;
             root_ = new_root.page_id_;
+            // update child's parent
+            cur_node.parent_page_ = new_root.page_id_;
+            new_node.parent_page_ = new_root.page_id_;
         } else {  // cur_node is the internal node
             // insert new key in parent node
-            update_parent(par_page_id, cur_page_id,
+            update_parent(par_page_id, new_node.page_id_,
                           new_node.keys_[0]);  // recursion
         }
     }
@@ -136,17 +144,25 @@ void bptree<T, ORDER>::insert(int key, T value) {
 
 template <class T, std::size_t ORDER>
 void bptree<T, ORDER>::update_parent(page_id_t par_page_id,
-                                     page_id_t cur_page_id, int key) {
+                                     page_id_t new_page_id, int key) {
     auto par_node = bpnode<T, ORDER>(par_page_id, folder_name_);
     int key_pos =
         std::upper_bound(par_node.keys_.begin(), par_node.keys_.end(), key) -
         par_node.keys_.begin();
     par_node.keys_.insert(par_node.keys_.begin() + key_pos, key);
     par_node.sub_ptrs_.insert(par_node.sub_ptrs_.begin() + key_pos + 1,
-                              cur_page_id);
+                              new_page_id);
     par_node.key_num_++;
     if (par_node.key_num_ >= get_max_internal_node_limit()) {
         // SPLIIIIIT
+        // NOTE Behavior wrong!!!!
+        // TODO: Debug
+        // 3 5 7 9
+        //    7
+        //  ↙  ↘
+        // 3,5  9
+        // 7 as a new value, add to it's parent.
+        // if it doesn't have parent? it become a new parent node.
         auto new_node = bpnode<T, ORDER>(++page_id_counter_, folder_name_);
         new_node.keys_ = std::vector<int>(
             par_node.keys_.begin() + ceil(get_max_internal_node_limit() / 2),
@@ -170,7 +186,7 @@ void bptree<T, ORDER>::update_parent(page_id_t par_page_id,
             tmp_node.parent_page_ = new_node.page_id_;
         }
         // update the parent node
-        if (par_page_id == 1) {  // par_node is the root node
+        if (par_page_id == root_) {  // par_node is the root node
             // create a new root
             auto new_root = bpnode<T, ORDER>(++page_id_counter_, folder_name_);
             new_root.is_leaf_ = false;

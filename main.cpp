@@ -12,8 +12,10 @@ using namespace std;
 int main() {
     // bpnode<char, 5> root(1);
     bptree<int, 5> tree(std::string("tree1"));
-    int a, b;
-    while (std::cin >> a >> b) {
+    int a = 1, b;
+    while (true) {
+        std::cin >> a >> b;
+        if (a == -1) break;
         tree.insert(a, b);
     }
     return 0;

@@ -54,7 +54,7 @@ class bpnode {
 
 template <class T, std::size_t ORDER>
 bpnode<T, ORDER>::bpnode(page_id_t page_id, std::string folder_name) {
-    page_id_ = page_id;
+    page_id_ = page_id;  // don't save in file
     folder_name_ = folder_name;
     is_leaf_ = false;
     key_num_ = 0;
