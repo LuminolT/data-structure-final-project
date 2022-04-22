@@ -145,6 +145,12 @@ void bptree<T, ORDER>::insert(int key, T value) {
 template <class T, std::size_t ORDER>
 void bptree<T, ORDER>::update_parent(page_id_t par_page_id,
                                      page_id_t new_page_id, int key) {
+    // Note:
+    // This function works when the child node is splitted,
+    // par_page_id denotes the parent node of the left-splitted child,
+    // new_page_id denotes the right-splitted child
+    // key denotes the key value of right sib.
+    // (It works when split the internal nodes)
     auto par_node = bpnode<T, ORDER>(par_page_id, folder_name_);
     int key_pos =
         std::upper_bound(par_node.keys_.begin(), par_node.keys_.end(), key) -
@@ -156,52 +162,57 @@ void bptree<T, ORDER>::update_parent(page_id_t par_page_id,
     if (par_node.key_num_ >= get_max_internal_node_limit()) {
         // SPLIIIIIT
         // NOTE Behavior wrong!!!!
-        // TODO: Debug
+        // TO[x]DO: Debug
         // 3 5 7 9
         //    7
         //  ↙  ↘
         // 3,5  9
         // 7 as a new value, add to it's parent.
         // if it doesn't have parent? it become a new parent node.
-        auto new_node = bpnode<T, ORDER>(++page_id_counter_, folder_name_);
-        new_node.keys_ = std::vector<int>(
-            par_node.keys_.begin() + ceil(get_max_internal_node_limit() / 2),
-            par_node.keys_.end());
-        new_node.sub_ptrs_ = std::vector<page_id_t>(
+
+        // Firstly, SPLIT
+        auto right_sib_node =
+            bpnode<T, ORDER>(++page_id_counter_, folder_name_);
+        right_sib_node.keys_ =
+            std::vector<int>(par_node.keys_.begin() +
+                                 floor(get_max_internal_node_limit() / 2 + 1),
+                             par_node.keys_.end());
+        right_sib_node.sub_ptrs_ = std::vector<page_id_t>(
             par_node.sub_ptrs_.begin() +
-                ceil(get_max_internal_node_limit() / 2) + 1,
+                floor(get_max_internal_node_limit() / 2 + 1),
             par_node.sub_ptrs_.end());
-        new_node.key_num_ = new_node.keys_.size();
-        new_node.is_leaf_ = false;
-        new_node.parent_page_ = par_node.parent_page_;
-        new_node.next_page_ = par_node.next_page_;  // useless
-        new_node.prev_page_ = par_node.page_id_;    // useless
-        par_node.next_page_ = new_node.page_id_;    // useless
+        right_sib_node.key_num_ = right_sib_node.keys_.size();
+        right_sib_node.parent_page_ = par_node.parent_page_;
+        right_sib_node.next_page_ = par_node.next_page_;
+        right_sib_node.prev_page_ = par_node.page_id_;
+        // Get the '7' in example
+        auto add_key = par_node.keys_[floor(get_max_internal_node_limit() / 2)];
+        // resize the previous parent
+        par_node.next_page_ = right_sib_node.page_id_;
         par_node.keys_.resize(floor(get_max_internal_node_limit() / 2));
         par_node.sub_ptrs_.resize(floor(get_max_internal_node_limit() / 2) + 1);
         par_node.key_num_ = par_node.keys_.size();
-        // update the new node's child
-        for (auto &page_id : new_node.sub_ptrs_) {
-            auto tmp_node = bpnode<T, ORDER>(page_id, folder_name_);
-            tmp_node.parent_page_ = new_node.page_id_;
-        }
-        // update the parent node
+
+        // Secondly, UPDATE PARENT!
         if (par_page_id == root_) {  // par_node is the root node
             // create a new root
             auto new_root = bpnode<T, ORDER>(++page_id_counter_, folder_name_);
             new_root.is_leaf_ = false;
             new_root.key_num_ = 1;
-            new_root.keys_.emplace_back(new_node.keys_[0]);
+            new_root.keys_.emplace_back(add_key);
             new_root.sub_ptrs_.emplace_back(par_node.page_id_);
-            new_root.sub_ptrs_.emplace_back(new_node.page_id_);
+            new_root.sub_ptrs_.emplace_back(right_sib_node.page_id_);
             new_root.parent_page_ = -1;
             new_root.next_page_ = new_root.page_id_;
             new_root.prev_page_ = new_root.page_id_;
             root_ = new_root.page_id_;
+            // update child's parent
+            par_node.parent_page_ = new_root.page_id_;
+            right_sib_node.parent_page_ = new_root.page_id_;
         } else {  // par_node is the internal node
-            // insert new key in parent's parent node
-            update_parent(par_node.parent_page_, par_page_id,
-                          new_node.keys_[0]);  // recursion AGAIN!!!
+            // insert new key in parent node
+            update_parent(par_node.parent_page_, right_sib_node.page_id_,
+                          add_key);  // recursion AGAIN!
         }
     }
 }
