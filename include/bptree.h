@@ -66,6 +66,13 @@ bptree<T, ORDER>::~bptree() {
 
 template <class T, std::size_t ORDER>
 void bptree<T, ORDER>::insert(int key, T value) {
+    // Notes:
+    // Here is a little 'bug' in insert function
+    // acturally in prev_ptr and next_ptr (or pages)
+    // the prev ptr may be wrong.
+    // It could be configured, but considering the simplicity of the code,
+    // I don't think it is necessary. :-)
+
     if (root_ == -1) {  // case of empty tree
         // generate a new root
         auto tmp_node = bpnode<T, ORDER>(++page_id_counter_, folder_name_);
