@@ -12,30 +12,15 @@
 
 #include "bpnode.h"
 #include "bptree.h"
+#include "examine_log.h"
+#include "person_log.h"
 
 using namespace std;
 
 int main() {
-    bptree<int, int, 5> tree(std::string("tree1"));
-    for (int i = 1; i <= 10; i++) {
-        tree.insert(i, i);
-    }
-    tree.search(3, 4, [](auto i) { cout << i << " "; });
-    int n;
-    char op;
-    while (cin >> op >> n) {
-        if (n == -1) {
-            break;
-        }
-        if (op == 'S') {
-            try {
-                tree.search(n, [](auto i) { cout << i << "\n"; });
-            } catch (std::exception &e) {
-                cout << e.what() << "\n";
-            }
-        } else {
-            tree.remove(n);
-        }
-    }
+    person_log p1("00101011", "Luminolt");
+    examine_log e1("11111", "11111111", 1);
+    cout << p1;
+    cout << endl << e1;
     return 0;
 }

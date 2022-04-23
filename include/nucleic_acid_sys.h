@@ -1,20 +1,21 @@
 
 #ifndef INCLUDE_NUCLEIC_ACID_SYS_H_
 
-#include <queue>
+#include "bptree.h"
+#include "examine_log.h"
+#include "person_log.h"
 
 class NucleicAcidSys {
-  public:
+public:
     // Default constructor
-    NucleicAcidSys() = default;
+    NucleicAcidSys();
 
     // Destructor
     ~NucleicAcidSys() = default;
 
-  protected:
-    //
-    std::queue<int> nucleic_acid_queue;
-    std::queue<int> queue2;
+protected:
+    bptree<id_t<8>, person_log, 64> person;
+    bptree<id_t<5>, examine_log, 64> examine;
 };
 
 #define INCLUDE_NUCLEIC_ACID_SYS_H_
