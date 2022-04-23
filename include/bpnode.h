@@ -17,7 +17,7 @@ class bpnode {
      * - Internal nodes have keys and pointers to child nodes
      * - Leaf nodes have keys and values
      */
-  public:
+public:
     page_id_t page_id_;
     bool is_leaf_;
     int key_num_;
@@ -77,13 +77,23 @@ bpnode<T, ORDER>::bpnode(page_id_t page_id, std::string folder_name) {
 
 template <class T, std::size_t ORDER>
 bpnode<T, ORDER>::~bpnode() {
-    auto file_name = folder_name_ + "/" + std::to_string(page_id_) + ".txt";
-    std::ofstream file(file_name);
-    //    if (!file.is_open()) {
-    //         throw std::runtime_error("file is not open!");
-    //    }
-    file << *this;
-    file.close();
+    if (key_num_ > 0) {
+        auto file_name = folder_name_ + "/" + std::to_string(page_id_) + ".txt";
+        std::ofstream file(file_name);
+        file << *this;
+        file.close();
+    } else {
+        if (prev_page_ != -1) {
+            bpnode<T, ORDER> prev_node = bpnode<T, ORDER>(prev_page_, folder_name_);
+            prev_node.next_page_ = next_page_;
+        }
+        if (next_page_ != -1) {
+            bpnode<T, ORDER> next_node = bpnode<T, ORDER>(next_page_, folder_name_);
+            next_node.prev_page_ = prev_page_;
+        }
+        auto file_name = folder_name_ + "/" + std::to_string(page_id_) + ".txt";
+        std::remove(file_name.c_str());
+    }
 }
 
 template <class T, std::size_t ORDER>
