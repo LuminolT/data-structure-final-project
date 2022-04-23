@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <functional>
+#include <algorithm>
 
 #include "bpnode.h"
 
@@ -133,6 +134,10 @@ void bptree<T, ORDER>::insert(int key, T value) {
         new_node.next_page_ = cur_node.next_page_;
         new_node.prev_page_ = cur_node.page_id_;
         cur_node.next_page_ = new_node.page_id_;
+        if (new_node.next_page_ != -1) {
+            auto tmp_node = bpnode<T, ORDER>(new_node.next_page_, folder_name_);
+            tmp_node.prev_page_ = new_node.page_id_;
+        }
         cur_node.keys_.resize(floor(get_max_leaf_node_limit() / 2));
         cur_node.values_.resize(floor(get_max_leaf_node_limit() / 2));
         cur_node.key_num_ = cur_node.keys_.size();
@@ -197,6 +202,10 @@ void bptree<T, ORDER>::insert_update_parent(page_id_t par_page_id, page_id_t new
         right_sib_node.parent_page_ = par_node.parent_page_;
         right_sib_node.next_page_ = par_node.next_page_;
         right_sib_node.prev_page_ = par_node.page_id_;
+        if (right_sib_node.next_page_ != -1) {
+            auto tmp_node = bpnode<T, ORDER>(right_sib_node.next_page_, folder_name_);
+            tmp_node.prev_page_ = right_sib_node.page_id_;
+        }
         // Get the '7' in example
         auto add_key = par_node.keys_[floor(get_max_internal_node_limit() / 2)];
         // resize the previous parent
@@ -293,15 +302,67 @@ void bptree<T, ORDER>::remove(int key) {
         throw std::runtime_error("remove: key not found!");
     }
     // Now, we can remove the key
+    auto tmp_front_key = cur_node.keys_.front();  // record the front first~
     cur_node.keys_.erase(cur_node.keys_.begin() + key_pos);
+    cur_node.values_.erase(cur_node.values_.begin() + key_pos);
     cur_node.key_num_--;
     // balance!
-    if (cur_node.key_num < ceil(get_max_leaf_node_limit / 2)) {
+    if (cur_node.key_num_ < ceil(get_max_leaf_node_limit() / 2)) {
         // steal from left sibling
-        // merge with left sibling
+        if (cur_node.prev_page_ != -1) {
+            auto left_sibling = bpnode<T, ORDER>(cur_node.prev_page_, folder_name_);
+            if (left_sibling.key_num_ >= ceil(get_max_leaf_node_limit() / 2)) {
+                // transfer the maximum keys from the left sibling
+                cur_node.keys_.emplace(cur_node.keys_.begin(), left_sibling.keys_.back());
+                cur_node.values_.emplace(cur_node.values_.begin(), left_sibling.values_.back());
+                cur_node.key_num_++;
+                left_sibling.keys_.pop_back();
+                left_sibling.values_.pop_back();
+                left_sibling.key_num_--;
+                // update parent
+                if (cur_node.parent_page_ != -1) {
+                    auto par_node = bpnode<T, ORDER>(cur_node.parent_page_, folder_name_);
+                    auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(),
+                                                    tmp_front_key) -
+                                   par_node.keys_.begin();
+                    par_node.keys_[key_pos] = cur_node.keys_.front();
+                }
+                return;
+            }
+        }
         // steal from right sibling
+        if (cur_node.next_page_ != -1) {
+            auto right_sibling = bpnode<T, ORDER>(cur_node.next_page_, folder_name_);
+            if (right_sibling.key_num_ >= ceil(get_max_leaf_node_limit() / 2)) {
+                // transfer the minimum keys from the right sibling
+                auto tmp_back_key = cur_node.keys_.back();
+                cur_node.keys_.emplace_back(right_sibling.keys_.front());
+                cur_node.values_.emplace_back(right_sibling.values_.front());
+                cur_node.key_num_++;
+                right_sibling.keys_.erase(right_sibling.keys_.begin());
+                right_sibling.values_.erase(right_sibling.values_.begin());
+                right_sibling.key_num_--;
+                // update parent
+                if (cur_node.parent_page_ != -1) {
+                    auto par_node = bpnode<T, ORDER>(cur_node.parent_page_, folder_name_);
+                    auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(),
+                                                    tmp_back_key) -
+                                   par_node.keys_.begin();
+                    par_node.keys_[key_pos] = cur_node.keys_.back();
+                }
+                return;
+            }
+        }
+        // merge with left sibling
+        if (cur_node.prev_page_ != -1) {
+                }
         // merge with right sibling
-    } else {
+        if (cur_node.next_page_ != -1) {
+            ;
+        }
+    }
+
+    else {
         // reset the parent's key-ptr
     }
 }
