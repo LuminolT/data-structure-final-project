@@ -454,7 +454,7 @@ void bptree<T, ORDER>::remove_update_parent(bpnode<T, ORDER> &node, page_id_t ch
                 // key round
                 // Note: Here maybe some problems when cur_node is not empty
                 // but in this case cur_node must be empty :-)
-                cur_node.keys_.emplace(cur_node.begin(), par_node.keys_[key_pos]);
+                cur_node.keys_.emplace(cur_node.keys_.begin(), par_node.keys_[key_pos]);
                 cur_node.key_num_++;
                 par_node.keys_[key_pos] = left_sibling.keys_.back();
                 left_sibling.keys_.pop_back();
