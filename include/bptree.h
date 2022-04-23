@@ -1,3 +1,9 @@
+/*!
+ * @file bptree.h
+ * @author Luminolt
+ * @brief B+tree tree class
+ */
+
 #ifndef INCLUDE_BPTREE_H_
 #define INCLUDE_BPTREE_H_
 
@@ -9,7 +15,16 @@
 
 #include "bpnode.h"
 
-template <class VT, std::size_t ORDER>
+/*!
+ * @brief template clss for bp tree
+ * @tparam KT key type
+ * @tparam VT value type
+ * @tparam ORDER order of b+tree
+ * @brief B+Tree Node
+ *      - an on-file b+tree
+ *      - methods including insert, remove and search(with edit)
+ */
+template <class KT, class VT, std::size_t ORDER>
 class bptree {
 public:
     // Default Constructor
@@ -24,13 +39,13 @@ public:
     constexpr int get_max_leaf_node_limit() { return ORDER - 1; }
 
     // Insert <key,value> to the B+ tree
-    void insert(int key, VT value);
+    void insert(KT key, VT value);
 
     // Remove <key> in the B+ tree
-    void remove(int key);
+    void remove(KT key);
 
     // Search <key> in the B+ tree and call the function
-    void search(int key, std::function<void(VT &)> func, int mode = 0) {
+    void search(KT key, std::function<void(VT &)> func, int mode = 0) {
         range_search(key, key, func, mode);
     }
 
@@ -45,17 +60,17 @@ protected:
     int page_id_counter_;      // Counter of the page id.
 
     // Update the parent node after insert
-    void insert_update_parent(page_id_t par, page_id_t cur, int key);
+    void insert_update_parent(page_id_t par, page_id_t cur, KT key);
 
     // Update the parent node after remove
-    void remove_update_parent(bpnode<VT, ORDER> &node, page_id_t child_page);
+    void remove_update_parent(bpnode<KT, VT, ORDER> &node, page_id_t child_page);
 
     // Range search (mode 0 denotes repeartedly search)
-    void range_search(int key_start, int key_end, std::function<void(VT &)>, int mode);
+    void range_search(KT key_start, KT key_end, std::function<void(VT &)>, int mode);
 };
 
-template <class VT, std::size_t ORDER>
-bptree<VT, ORDER>::bptree(std::string folder_name) {
+template <class KT, class VT, std::size_t ORDER>
+bptree<KT, VT, ORDER>::bptree(std::string folder_name) {
     folder_name_ = folder_name;
     // get the root_ page_id
     struct stat buf;
@@ -71,16 +86,16 @@ bptree<VT, ORDER>::bptree(std::string folder_name) {
     }
 }
 
-template <class VT, std::size_t ORDER>
-bptree<VT, ORDER>::~bptree() {
+template <class KT, class VT, std::size_t ORDER>
+bptree<KT, VT, ORDER>::~bptree() {
     std::ofstream root_file(folder_name_ + "/root.txt");
     root_file << root_ << std::endl;
     root_file << page_id_counter_ << std::endl;
     root_file.close();
 }
 
-template <class VT, std::size_t ORDER>
-void bptree<VT, ORDER>::insert(int key, VT value) {
+template <class KT, class VT, std::size_t ORDER>
+void bptree<KT, VT, ORDER>::insert(KT key, VT value) {
     // Notes:
     // Here is a little 'bug' in insert function
     // acturally in prev_ptr and next_ptr (or pages)
@@ -91,7 +106,7 @@ void bptree<VT, ORDER>::insert(int key, VT value) {
 
     if (root_ == -1) {  // case of empty tree
         // generate a new root
-        bpnode<VT, ORDER> tmp_node = bpnode<VT, ORDER>(++page_id_counter_, folder_name_);
+        bpnode<KT, VT, ORDER> tmp_node = bpnode<KT, VT, ORDER>(++page_id_counter_, folder_name_);
         tmp_node.is_leaf_ = true;
         tmp_node.key_num_ = 1;
         tmp_node.next_page_ = -1;
@@ -104,7 +119,7 @@ void bptree<VT, ORDER>::insert(int key, VT value) {
     }
     page_id_t cur_page_id = root_;
     page_id_t par_page_id = 0;
-    bpnode<VT, ORDER> cur_node = bpnode<VT, ORDER>(cur_page_id, folder_name_);
+    bpnode<KT, VT, ORDER> cur_node = bpnode<KT, VT, ORDER>(cur_page_id, folder_name_);
     // get the leaf node
     while (!cur_node.is_leaf_) {
         par_page_id = cur_page_id;
@@ -112,7 +127,7 @@ void bptree<VT, ORDER>::insert(int key, VT value) {
             cur_node.sub_ptrs_[std::upper_bound(cur_node.keys_.begin(), cur_node.keys_.end(), key) -
                                cur_node.keys_.begin()];
         // std::cout << cur_page_id << std::endl;   // DEBUG
-        cur_node = bpnode<VT, ORDER>(cur_page_id, folder_name_);
+        cur_node = bpnode<KT, VT, ORDER>(cur_page_id, folder_name_);
     }
 
     // insert key-value
@@ -123,7 +138,7 @@ void bptree<VT, ORDER>::insert(int key, VT value) {
     cur_node.key_num_++;
     if (cur_node.key_num_ >= get_max_leaf_node_limit()) {
         // NOW we have to split the nodes
-        bpnode<VT, ORDER> new_node = bpnode<VT, ORDER>(++page_id_counter_, folder_name_);
+        bpnode<KT, VT, ORDER> new_node = bpnode<KT, VT, ORDER>(++page_id_counter_, folder_name_);
         new_node.keys_ = std::vector<int>(
             cur_node.keys_.begin() + ceil(get_max_leaf_node_limit() / 2), cur_node.keys_.end());
         new_node.values_ = std::vector<VT>(
@@ -135,7 +150,8 @@ void bptree<VT, ORDER>::insert(int key, VT value) {
         new_node.prev_page_ = cur_node.page_id_;
         cur_node.next_page_ = new_node.page_id_;
         if (new_node.next_page_ != -1) {
-            bpnode<VT, ORDER> tmp_node = bpnode<VT, ORDER>(new_node.next_page_, folder_name_);
+            bpnode<KT, VT, ORDER> tmp_node =
+                bpnode<KT, VT, ORDER>(new_node.next_page_, folder_name_);
             tmp_node.prev_page_ = new_node.page_id_;
         }
         cur_node.keys_.resize(floor(get_max_leaf_node_limit() / 2));
@@ -144,7 +160,8 @@ void bptree<VT, ORDER>::insert(int key, VT value) {
         // update the parent node
         if (cur_page_id == root_) {  // cur_node is the root node
             // create a new root
-            bpnode<VT, ORDER> new_root = bpnode<VT, ORDER>(++page_id_counter_, folder_name_);
+            bpnode<KT, VT, ORDER> new_root =
+                bpnode<KT, VT, ORDER>(++page_id_counter_, folder_name_);
             new_root.is_leaf_ = false;
             new_root.key_num_ = 1;
             new_root.keys_.emplace_back(new_node.keys_[0]);
@@ -165,16 +182,16 @@ void bptree<VT, ORDER>::insert(int key, VT value) {
     }
 }
 
-template <class VT, std::size_t ORDER>
-void bptree<VT, ORDER>::insert_update_parent(page_id_t par_page_id, page_id_t new_page_id,
-                                             int key) {
+template <class KT, class VT, std::size_t ORDER>
+void bptree<KT, VT, ORDER>::insert_update_parent(page_id_t par_page_id, page_id_t new_page_id,
+                                                 KT key) {
     // Note:
     // VThis function works when the child node is splitted,
     // par_page_id denotes the parent node of the left-splitted child,
     // new_page_id denotes the right-splitted child
     // key denotes the key value of right sib.
     // (It works when split the internal nodes)
-    bpnode<VT, ORDER> par_node = bpnode<VT, ORDER>(par_page_id, folder_name_);
+    bpnode<KT, VT, ORDER> par_node = bpnode<KT, VT, ORDER>(par_page_id, folder_name_);
     int key_pos = std::upper_bound(par_node.keys_.begin(), par_node.keys_.end(), key) -
                   par_node.keys_.begin();
     par_node.keys_.insert(par_node.keys_.begin() + key_pos, key);
@@ -192,7 +209,8 @@ void bptree<VT, ORDER>::insert_update_parent(page_id_t par_page_id, page_id_t ne
         // if it doesn't have parent? it become a new parent node.
 
         // Firstly, SPLIVT
-        bpnode<VT, ORDER> right_sib_node = bpnode<VT, ORDER>(++page_id_counter_, folder_name_);
+        bpnode<KT, VT, ORDER> right_sib_node =
+            bpnode<KT, VT, ORDER>(++page_id_counter_, folder_name_);
         right_sib_node.keys_ =
             std::vector<int>(par_node.keys_.begin() + floor(get_max_internal_node_limit() / 2 + 1),
                              par_node.keys_.end());
@@ -204,7 +222,8 @@ void bptree<VT, ORDER>::insert_update_parent(page_id_t par_page_id, page_id_t ne
         right_sib_node.next_page_ = par_node.next_page_;
         right_sib_node.prev_page_ = par_node.page_id_;
         if (right_sib_node.next_page_ != -1) {
-            bpnode<VT, ORDER> tmp_node = bpnode<VT, ORDER>(right_sib_node.next_page_, folder_name_);
+            bpnode<KT, VT, ORDER> tmp_node =
+                bpnode<KT, VT, ORDER>(right_sib_node.next_page_, folder_name_);
             tmp_node.prev_page_ = right_sib_node.page_id_;
         }
         // Get the '7' in example
@@ -218,7 +237,7 @@ void bptree<VT, ORDER>::insert_update_parent(page_id_t par_page_id, page_id_t ne
         // Secondly, UPDAVTE PARENVT!
         if (par_page_id == root_) {  // par_node is the root node
             // create a new root
-            auto new_root = bpnode<VT, ORDER>(++page_id_counter_, folder_name_);
+            auto new_root = bpnode<KT, VT, ORDER>(++page_id_counter_, folder_name_);
             new_root.is_leaf_ = false;
             new_root.key_num_ = 1;
             new_root.keys_.emplace_back(add_key);
@@ -239,9 +258,9 @@ void bptree<VT, ORDER>::insert_update_parent(page_id_t par_page_id, page_id_t ne
     }
 }
 
-template <class VT, std::size_t ORDER>
-void bptree<VT, ORDER>::range_search(int key_start, int key_end, std::function<void(VT &)> func,
-                                     int mode) {
+template <class KT, class VT, std::size_t ORDER>
+void bptree<KT, VT, ORDER>::range_search(KT key_start, KT key_end, std::function<void(VT &)> func,
+                                         int mode) {
     // error handling
     if (key_end < key_start) {
         throw std::invalid_argument("search: key_end < key_start");
@@ -250,11 +269,11 @@ void bptree<VT, ORDER>::range_search(int key_start, int key_end, std::function<v
         throw std::runtime_error("search: tree is empty!");
     }
 
-    bpnode<VT, ORDER> cur_node = bpnode<VT, ORDER>(root_, folder_name_);
+    bpnode<KT, VT, ORDER> cur_node = bpnode<KT, VT, ORDER>(root_, folder_name_);
     while (!cur_node.is_leaf_) {
         auto key_pos = std::upper_bound(cur_node.keys_.begin(), cur_node.keys_.end(), key_start) -
                        cur_node.keys_.begin();
-        cur_node = bpnode<VT, ORDER>(cur_node.sub_ptrs_[key_pos], folder_name_);
+        cur_node = bpnode<KT, VT, ORDER>(cur_node.sub_ptrs_[key_pos], folder_name_);
     }
     // Now, cur_node is the leaf node
     // Get the key position
@@ -275,15 +294,15 @@ void bptree<VT, ORDER>::range_search(int key_start, int key_end, std::function<v
                 if (cur_node.next_page_ == -1) {
                     break;
                 }
-                cur_node = bpnode<VT, ORDER>(cur_node.next_page_, folder_name_);
+                cur_node = bpnode<KT, VT, ORDER>(cur_node.next_page_, folder_name_);
                 key_pos = 0;
             }
         }
     }
 }
 
-template <class VT, std::size_t ORDER>
-void bptree<VT, ORDER>::remove(int key) {
+template <class KT, class VT, std::size_t ORDER>
+void bptree<KT, VT, ORDER>::remove(KT key) {
     // Note
     // [] VTODO
     // Here is sth wrong with the delete method...
@@ -295,11 +314,11 @@ void bptree<VT, ORDER>::remove(int key) {
         throw std::runtime_error("remove: tree is empty!");
     }
 
-    bpnode<VT, ORDER> cur_node = bpnode<VT, ORDER>(root_, folder_name_);
+    bpnode<KT, VT, ORDER> cur_node = bpnode<KT, VT, ORDER>(root_, folder_name_);
     while (!cur_node.is_leaf_) {
         auto key_pos = std::upper_bound(cur_node.keys_.begin(), cur_node.keys_.end(), key) -
                        cur_node.keys_.begin();
-        cur_node = bpnode<VT, ORDER>(cur_node.sub_ptrs_[key_pos], folder_name_);
+        cur_node = bpnode<KT, VT, ORDER>(cur_node.sub_ptrs_[key_pos], folder_name_);
     }
     // Now, cur_node is the leaf node
     // Get the key position
@@ -318,7 +337,8 @@ void bptree<VT, ORDER>::remove(int key) {
     if (cur_node.key_num_ == 0) {
         // steal from left sibling
         if (cur_node.prev_page_ != -1) {
-            bpnode<VT, ORDER> left_sibling = bpnode<VT, ORDER>(cur_node.prev_page_, folder_name_);
+            bpnode<KT, VT, ORDER> left_sibling =
+                bpnode<KT, VT, ORDER>(cur_node.prev_page_, folder_name_);
             if (left_sibling.key_num_ >= ceil(get_max_leaf_node_limit() / 2)) {
                 // transfer the maximum keys from the left sibling
                 cur_node.keys_.emplace(cur_node.keys_.begin(), left_sibling.keys_.back());
@@ -329,8 +349,8 @@ void bptree<VT, ORDER>::remove(int key) {
                 left_sibling.key_num_--;
                 // update parent
                 if (cur_node.parent_page_ != -1) {
-                    bpnode<VT, ORDER> par_node =
-                        bpnode<VT, ORDER>(cur_node.parent_page_, folder_name_);
+                    bpnode<KT, VT, ORDER> par_node =
+                        bpnode<KT, VT, ORDER>(cur_node.parent_page_, folder_name_);
                     auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(),
                                                     tmp_front_key) -
                                    par_node.keys_.begin();
@@ -341,7 +361,8 @@ void bptree<VT, ORDER>::remove(int key) {
         }
         // steal from right sibling
         if (cur_node.next_page_ != -1) {
-            bpnode<VT, ORDER> right_sibling = bpnode<VT, ORDER>(cur_node.next_page_, folder_name_);
+            bpnode<KT, VT, ORDER> right_sibling =
+                bpnode<KT, VT, ORDER>(cur_node.next_page_, folder_name_);
             if (right_sibling.key_num_ >= ceil(get_max_leaf_node_limit() / 2)) {
                 // transfer the minimum keys from the right sibling
                 tmp_front_key = right_sibling.keys_.front();
@@ -353,8 +374,8 @@ void bptree<VT, ORDER>::remove(int key) {
                 right_sibling.key_num_--;
                 // update parent
                 if (cur_node.parent_page_ != -1) {
-                    bpnode<VT, ORDER> par_node =
-                        bpnode<VT, ORDER>(cur_node.parent_page_, folder_name_);
+                    bpnode<KT, VT, ORDER> par_node =
+                        bpnode<KT, VT, ORDER>(cur_node.parent_page_, folder_name_);
                     auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(),
                                                     tmp_front_key) -
                                    par_node.keys_.begin();
@@ -365,7 +386,8 @@ void bptree<VT, ORDER>::remove(int key) {
         }
         // merge with left sibling
         if (cur_node.prev_page_ != -1) {
-            bpnode<VT, ORDER> left_sibling = bpnode<VT, ORDER>(cur_node.prev_page_, folder_name_);
+            bpnode<KT, VT, ORDER> left_sibling =
+                bpnode<KT, VT, ORDER>(cur_node.prev_page_, folder_name_);
             // mark
             tmp_front_key = cur_node.keys_.front();
             // merge
@@ -376,12 +398,14 @@ void bptree<VT, ORDER>::remove(int key) {
             left_sibling.key_num_ += cur_node.key_num_;
             left_sibling.next_page_ = cur_node.next_page_;
             if (cur_node.next_page_ != -1) {
-                bpnode<VT, ORDER> next_node = bpnode<VT, ORDER>(cur_node.next_page_, folder_name_);
+                bpnode<KT, VT, ORDER> next_node =
+                    bpnode<KT, VT, ORDER>(cur_node.next_page_, folder_name_);
                 next_node.prev_page_ = cur_node.prev_page_;
             }
             cur_node.key_num_ = 0;  // clear, and destruct later
             // update parent
-            bpnode<VT, ORDER> par_node = bpnode<VT, ORDER>(cur_node.parent_page_, folder_name_);
+            bpnode<KT, VT, ORDER> par_node =
+                bpnode<KT, VT, ORDER>(cur_node.parent_page_, folder_name_);
             // parent is the root
             auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(), key) -
                            par_node.keys_.begin();
@@ -393,7 +417,8 @@ void bptree<VT, ORDER>::remove(int key) {
             }
         }  // merge with right sibling
         else if (cur_node.next_page_ != -1) {
-            bpnode<VT, ORDER> right_sibling = bpnode<VT, ORDER>(cur_node.next_page_, folder_name_);
+            bpnode<KT, VT, ORDER> right_sibling =
+                bpnode<KT, VT, ORDER>(cur_node.next_page_, folder_name_);
             // mark
             tmp_front_key = right_sibling.keys_.front();
             // merge
@@ -404,14 +429,14 @@ void bptree<VT, ORDER>::remove(int key) {
             cur_node.key_num_ += right_sibling.key_num_;
             cur_node.next_page_ = right_sibling.next_page_;
             if (right_sibling.next_page_ != -1) {
-                bpnode<VT, ORDER> next_node =
-                    bpnode<VT, ORDER>(right_sibling.next_page_, folder_name_);
+                bpnode<KT, VT, ORDER> next_node =
+                    bpnode<KT, VT, ORDER>(right_sibling.next_page_, folder_name_);
                 next_node.prev_page_ = cur_node.page_id_;
             }
             right_sibling.key_num_ = 0;  // clear, and destruct later
             // update parent
-            bpnode<VT, ORDER> par_node =
-                bpnode<VT, ORDER>(right_sibling.parent_page_, folder_name_);
+            bpnode<KT, VT, ORDER> par_node =
+                bpnode<KT, VT, ORDER>(right_sibling.parent_page_, folder_name_);
             // parent is the root
             auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(), key) -
                            par_node.keys_.begin();
@@ -425,8 +450,9 @@ void bptree<VT, ORDER>::remove(int key) {
     }
 }
 
-template <class VT, std::size_t ORDER>
-void bptree<VT, ORDER>::remove_update_parent(bpnode<VT, ORDER> &node, page_id_t child_page) {
+template <class KT, class VT, std::size_t ORDER>
+void bptree<KT, VT, ORDER>::remove_update_parent(bpnode<KT, VT, ORDER> &node,
+                                                 page_id_t child_page) {
     // Notes:
     // this works only for internal nodes
     //    5
@@ -441,12 +467,13 @@ void bptree<VT, ORDER>::remove_update_parent(bpnode<VT, ORDER> &node, page_id_t 
     }
 
     // Secondly, we handle the cur_page is not root situation
-    bpnode<VT, ORDER> &cur_node = node;
-    bpnode<VT, ORDER> par_node = bpnode<VT, ORDER>(node.parent_page_, folder_name_);
+    bpnode<KT, VT, ORDER> &cur_node = node;
+    bpnode<KT, VT, ORDER> par_node = bpnode<KT, VT, ORDER>(node.parent_page_, folder_name_);
     if (node.key_num_ == 0) {  // 100% VTrue, just for filed setting
         // steal from left sibling
         if (node.prev_page_ != -1) {
-            bpnode<VT, ORDER> left_sibling = bpnode<VT, ORDER>(node.prev_page_, folder_name_);
+            bpnode<KT, VT, ORDER> left_sibling =
+                bpnode<KT, VT, ORDER>(node.prev_page_, folder_name_);
             if (left_sibling.key_num_ >= ceil(get_max_leaf_node_limit() / 2)) {
                 // steal
                 // search place
@@ -470,7 +497,8 @@ void bptree<VT, ORDER>::remove_update_parent(bpnode<VT, ORDER> &node, page_id_t 
         }
         // steal from right sibling
         if (node.next_page_ != -1) {
-            bpnode<VT, ORDER> right_sibling = bpnode<VT, ORDER>(node.next_page_, folder_name_);
+            bpnode<KT, VT, ORDER> right_sibling =
+                bpnode<KT, VT, ORDER>(node.next_page_, folder_name_);
             if (right_sibling.key_num_ >= ceil(get_max_leaf_node_limit() / 2)) {
                 // steal
                 // search place
@@ -492,7 +520,8 @@ void bptree<VT, ORDER>::remove_update_parent(bpnode<VT, ORDER> &node, page_id_t 
         // MERRRRRRRGE!!!!!
         // merge with left sibling
         if (node.prev_page_ != -1) {
-            bpnode<VT, ORDER> left_sibling = bpnode<VT, ORDER>(node.prev_page_, folder_name_);
+            bpnode<KT, VT, ORDER> left_sibling =
+                bpnode<KT, VT, ORDER>(node.prev_page_, folder_name_);
             // merge
             auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(),
                                             left_sibling.keys_.front()) -
@@ -510,7 +539,8 @@ void bptree<VT, ORDER>::remove_update_parent(bpnode<VT, ORDER> &node, page_id_t 
         }
         // merge with right sibling
         else if (node.next_page_ != -1) {
-            bpnode<VT, ORDER> right_sibling = bpnode<VT, ORDER>(node.next_page_, folder_name_);
+            bpnode<KT, VT, ORDER> right_sibling =
+                bpnode<KT, VT, ORDER>(node.next_page_, folder_name_);
             // merge
             auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(),
                                             right_sibling.keys_.back()) -

@@ -1,3 +1,9 @@
+/*!
+ * @file bpnode.h
+ * @author Luminolt
+ * @brief B+tree node class
+ */
+
 #ifndef INCLUDE_BPNODE_H_
 #define INCLUDE_BPNODE_H_
 
@@ -7,21 +13,26 @@
 #include <variant>
 #include <vector>
 
+// we use page_id to identify a node, rather than a pointer
 typedef int page_id_t;
 
-template <class VT, std::size_t ORDER>
+/*!
+ * @brief template clss for bp node
+ * @tparam KT key type
+ * @tparam VT value type
+ * @tparam ORDER order of b+tree
+ * @brief B+Tree Node
+ *      - A node can be either an internal node or a leaf node
+ *      - Internal nodes have keys and pointers to child nodes
+ *      - Leaf nodes have keys and values
+ */
+template <class KT, class VT, std::size_t ORDER>
 class bpnode {
-    /*
-     *  B+VTree Node
-     * - A node can be either an internal node or a leaf node
-     * - Internal nodes have keys and pointers to child nodes
-     * - Leaf nodes have keys and values
-     */
 public:
     page_id_t page_id_;
     bool is_leaf_;
     int key_num_;
-    std::vector<int> keys_;
+    std::vector<KT> keys_;
     std::vector<VT> values_;  // In case of same type, we don't use variant
     std::vector<page_id_t> sub_ptrs_;
     int parent_page_;
@@ -36,7 +47,7 @@ public:
     ~bpnode();
 
     // override [] operator
-    VT &operator[](int);
+    VT &operator[](KT);
 
     // override iostream
     std::istream &input(std::istream &is);
@@ -46,17 +57,17 @@ public:
     std::istream &debug_input(std::istream &is);
     std::ostream &debug_output(std::ostream &os);
 
-    friend std::istream &operator>>(std::istream &is, bpnode<VT, ORDER> &self) {
+    friend std::istream &operator>>(std::istream &is, bpnode<KT, VT, ORDER> &self) {
         return self.debug_input(is);
     }
 
-    friend std::ostream &operator<<(std::ostream &os, bpnode<VT, ORDER> &self) {
+    friend std::ostream &operator<<(std::ostream &os, bpnode<KT, VT, ORDER> &self) {
         return self.debug_output(os);
     }
 };
 
-template <class VT, std::size_t ORDER>
-bpnode<VT, ORDER>::bpnode(page_id_t page_id, std::string folder_name) {
+template <class KT, class VT, std::size_t ORDER>
+bpnode<KT, VT, ORDER>::bpnode(page_id_t page_id, std::string folder_name) {
     page_id_ = page_id;  // don't save in file
     folder_name_ = folder_name;
     is_leaf_ = false;
@@ -75,8 +86,8 @@ bpnode<VT, ORDER>::bpnode(page_id_t page_id, std::string folder_name) {
     file.close();
 }
 
-template <class VT, std::size_t ORDER>
-bpnode<VT, ORDER>::~bpnode() {
+template <class KT, class VT, std::size_t ORDER>
+bpnode<KT, VT, ORDER>::~bpnode() {
     if (key_num_ > 0) {
         auto file_name = folder_name_ + "/" + std::to_string(page_id_) + ".txt";
         std::ofstream file(file_name);
@@ -84,11 +95,11 @@ bpnode<VT, ORDER>::~bpnode() {
         file.close();
     } else {
         if (prev_page_ != -1) {
-            bpnode<VT, ORDER> prev_node = bpnode<VT, ORDER>(prev_page_, folder_name_);
+            bpnode<KT, VT, ORDER> prev_node = bpnode<KT, VT, ORDER>(prev_page_, folder_name_);
             prev_node.next_page_ = next_page_;
         }
         if (next_page_ != -1) {
-            bpnode<VT, ORDER> next_node = bpnode<VT, ORDER>(next_page_, folder_name_);
+            bpnode<KT, VT, ORDER> next_node = bpnode<KT, VT, ORDER>(next_page_, folder_name_);
             next_node.prev_page_ = prev_page_;
         }
         auto file_name = folder_name_ + "/" + std::to_string(page_id_) + ".txt";
@@ -96,8 +107,8 @@ bpnode<VT, ORDER>::~bpnode() {
     }
 }
 
-template <class VT, std::size_t ORDER>
-VT &bpnode<VT, ORDER>::operator[](int key) {
+template <class KT, class VT, std::size_t ORDER>
+VT &bpnode<KT, VT, ORDER>::operator[](KT key) {
     if (!is_leaf_) {
         throw std::runtime_error("op[]: this is not a leaf node!");
     }
@@ -109,12 +120,12 @@ VT &bpnode<VT, ORDER>::operator[](int key) {
     return values_[real_idx - keys_.begin()];
 }
 
-template <class VT, std::size_t ORDER>
-std::istream &bpnode<VT, ORDER>::input(std::istream &is) {
+template <class KT, class VT, std::size_t ORDER>
+std::istream &bpnode<KT, VT, ORDER>::input(std::istream &is) {
     is >> is_leaf_;
     is >> key_num_;
     for (int i = 0; i < key_num_; ++i) {
-        int key;
+        KT key;
         is >> key;
         keys_.emplace_back(key);
     }
@@ -137,13 +148,13 @@ std::istream &bpnode<VT, ORDER>::input(std::istream &is) {
     return is;
 }
 
-template <class VT, std::size_t ORDER>
-std::istream &bpnode<VT, ORDER>::debug_input(std::istream &is) {
+template <class KT, class VT, std::size_t ORDER>
+std::istream &bpnode<KT, VT, ORDER>::debug_input(std::istream &is) {
     std::string tmp;
     is >> tmp >> is_leaf_;
     is >> tmp >> key_num_;
     for (int i = 0; i < key_num_; ++i) {
-        int key;
+        KT key;
         is >> key;
         keys_.emplace_back(key);
     }
@@ -167,8 +178,8 @@ std::istream &bpnode<VT, ORDER>::debug_input(std::istream &is) {
     return is;
 }
 
-template <class VT, std::size_t ORDER>
-std::ostream &bpnode<VT, ORDER>::output(std::ostream &os) {
+template <class KT, class VT, std::size_t ORDER>
+std::ostream &bpnode<KT, VT, ORDER>::output(std::ostream &os) {
     os << is_leaf_ << std::endl;
     os << key_num_ << std::endl;
     for (int i = 0; i < key_num_; ++i) {
@@ -189,8 +200,8 @@ std::ostream &bpnode<VT, ORDER>::output(std::ostream &os) {
     return os;
 }
 
-template <class VT, std::size_t ORDER>
-std::ostream &bpnode<VT, ORDER>::debug_output(std::ostream &os) {
+template <class KT, class VT, std::size_t ORDER>
+std::ostream &bpnode<KT, VT, ORDER>::debug_output(std::ostream &os) {
     os << "is_leaf_: " << is_leaf_ << std::endl;
     os << "key_num_: " << key_num_ << std::endl;
     for (int i = 0; i < key_num_; ++i) {

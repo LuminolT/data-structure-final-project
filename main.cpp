@@ -1,3 +1,9 @@
+/*!
+ * @file main.cpp
+ * @author Luminolt
+ * @brief test and debug file
+ */
+
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -10,7 +16,7 @@
 using namespace std;
 
 int main() {
-    bptree<int, 5> tree(std::string("tree1"));
+    bptree<int, int, 5> tree(std::string("tree1"));
     for (int i = 1; i <= 10; i++) {
         tree.insert(i, i);
     }
