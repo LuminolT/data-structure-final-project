@@ -30,12 +30,12 @@ public:
     void remove(int key);
 
     // Search <key> in the B+ tree and call the function
-    void search(int key, std::function<void(T&)> func, int mode = 0) {
+    void search(int key, std::function<void(T &)> func, int mode = 0) {
         range_search(key, key, func, mode);
     }
 
     // Search <st~ed> in the B+ tree and call the function
-    void search(int st, int ed, std::function<void(T&)> func, int mode = 0) {
+    void search(int st, int ed, std::function<void(T &)> func, int mode = 0) {
         range_search(st, ed, func, mode);
     }
 
@@ -48,10 +48,10 @@ protected:
     void insert_update_parent(page_id_t par, page_id_t cur, int key);
 
     // Update the parent node after remove
-    void remove_update_parent(page_id_t par, page_id_t cur, int key);
+    void remove_update_parent(bpnode<T, ORDER> &node, page_id_t child_page);
 
     // Range search (mode 0 denotes repeartedly search)
-    void range_search(int key_start, int key_end, std::function<void(T&)>, int mode);
+    void range_search(int key_start, int key_end, std::function<void(T &)>, int mode);
 };
 
 template <class T, std::size_t ORDER>
@@ -151,8 +151,8 @@ void bptree<T, ORDER>::insert(int key, T value) {
             new_root.sub_ptrs_.emplace_back(cur_node.page_id_);
             new_root.sub_ptrs_.emplace_back(new_node.page_id_);
             new_root.parent_page_ = -1;
-            new_root.next_page_ = new_root.page_id_;
-            new_root.prev_page_ = new_root.page_id_;
+            new_root.next_page_ = -1;
+            new_root.prev_page_ = -1;
             root_ = new_root.page_id_;
             // update child's parent
             cur_node.parent_page_ = new_root.page_id_;
@@ -224,8 +224,8 @@ void bptree<T, ORDER>::insert_update_parent(page_id_t par_page_id, page_id_t new
             new_root.sub_ptrs_.emplace_back(par_node.page_id_);
             new_root.sub_ptrs_.emplace_back(right_sib_node.page_id_);
             new_root.parent_page_ = -1;
-            new_root.next_page_ = new_root.page_id_;
-            new_root.prev_page_ = new_root.page_id_;
+            new_root.next_page_ = -1;
+            new_root.prev_page_ = -1;
             root_ = new_root.page_id_;
             // update child's parent
             par_node.parent_page_ = new_root.page_id_;
@@ -239,7 +239,7 @@ void bptree<T, ORDER>::insert_update_parent(page_id_t par_page_id, page_id_t new
 }
 
 template <class T, std::size_t ORDER>
-void bptree<T, ORDER>::range_search(int key_start, int key_end, std::function<void(T&)> func,
+void bptree<T, ORDER>::range_search(int key_start, int key_end, std::function<void(T &)> func,
                                     int mode) {
     // error handling
     if (key_end < key_start) {
@@ -312,8 +312,9 @@ void bptree<T, ORDER>::remove(int key) {
     cur_node.keys_.erase(cur_node.keys_.begin() + key_pos);
     cur_node.values_.erase(cur_node.values_.begin() + key_pos);
     cur_node.key_num_--;
-    // balance!
-    if (cur_node.key_num_ < ceil(get_max_leaf_node_limit() / 2)) {
+    // balance! note that here set zero for balance.
+    // cuz in the file system we may spend more time on data stealing
+    if (cur_node.key_num_ == 0) {
         // steal from left sibling
         if (cur_node.prev_page_ != -1) {
             bpnode<T, ORDER> left_sibling = bpnode<T, ORDER>(cur_node.prev_page_, folder_name_);
@@ -372,12 +373,23 @@ void bptree<T, ORDER>::remove(int key) {
             left_sibling.values_.insert(left_sibling.values_.end(), cur_node.values_.begin(),
                                         cur_node.values_.end());
             left_sibling.key_num_ += cur_node.key_num_;
+            left_sibling.next_page_ = cur_node.next_page_;
+            if (cur_node.next_page_ != -1) {
+                bpnode<T, ORDER> next_node = bpnode<T, ORDER>(cur_node.next_page_, folder_name_);
+                next_node.prev_page_ = cur_node.prev_page_;
+            }
             cur_node.key_num_ = 0;  // clear, and destruct later
             // update parent
-            if (cur_node.parent_page_ != -1) {
-                remove_update_parent(cur_node.parent_page_, cur_node.page_id_, tmp_front_key);
+            bpnode<T, ORDER> par_node = bpnode<T, ORDER>(cur_node.parent_page_, folder_name_);
+            // parent is the root
+            auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(), key) -
+                           par_node.keys_.begin();
+            par_node.keys_.erase(par_node.keys_.begin() + key_pos);
+            par_node.sub_ptrs_.erase(par_node.sub_ptrs_.begin() + key_pos + 1);
+            par_node.key_num_--;
+            if (par_node.key_num_ == 0) {
+                remove_update_parent(par_node, left_sibling.page_id_);
             }
-            return;
         }  // merge with right sibling
         else if (cur_node.next_page_ != -1) {
             bpnode<T, ORDER> right_sibling = bpnode<T, ORDER>(cur_node.next_page_, folder_name_);
@@ -389,91 +401,128 @@ void bptree<T, ORDER>::remove(int key) {
             cur_node.values_.insert(cur_node.values_.end(), right_sibling.values_.begin(),
                                     right_sibling.values_.end());
             cur_node.key_num_ += right_sibling.key_num_;
+            cur_node.next_page_ = right_sibling.next_page_;
+            if (right_sibling.next_page_ != -1) {
+                bpnode<T, ORDER> next_node =
+                    bpnode<T, ORDER>(right_sibling.next_page_, folder_name_);
+                next_node.prev_page_ = cur_node.page_id_;
+            }
             right_sibling.key_num_ = 0;  // clear, and destruct later
             // update parent
-            if (cur_node.parent_page_ != -1) {
-                remove_update_parent(right_sibling.parent_page_, right_sibling.page_id_,
-                                     tmp_front_key);
+            bpnode<T, ORDER> par_node = bpnode<T, ORDER>(right_sibling.parent_page_, folder_name_);
+            // parent is the root
+            auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(), key) -
+                           par_node.keys_.begin();
+            par_node.keys_.erase(par_node.keys_.begin() + key_pos);
+            par_node.sub_ptrs_.erase(par_node.sub_ptrs_.begin() + key_pos + 1);
+            par_node.key_num_--;
+            if (par_node.key_num_ == 0) {
+                remove_update_parent(par_node, cur_node.page_id_);
             }
-            return;
         }
-    }
-
-    else {
-        // reset the parent's key-ptr
     }
 }
 
 template <class T, std::size_t ORDER>
-void bptree<T, ORDER>::remove_update_parent(page_id_t par, page_id_t cur, int key) {
-    bpnode<T, ORDER> par_node = bpnode<T, ORDER>(par, folder_name_);
-    auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(), key) -
-                   par_node.keys_.begin();
-    par_node.keys_.erase(par_node.keys_.begin() + key_pos);
-    par_node.sub_ptrs_.erase(par_node.sub_ptrs_.begin() + key_pos + 1);
-    par_node.key_num_--;
-    if (par_node.key_num_ < ceil(get_max_leaf_node_limit() / 2)) {
+void bptree<T, ORDER>::remove_update_parent(bpnode<T, ORDER> &node, page_id_t child_page) {
+    // Notes:
+    // this works only for internal nodes
+    //    5
+    //   / \        kind of this situation, handled in previous part
+    //  []  5*
+    // cur_node denotes the empty node now, next to handle steal or merge or sth~
+
+    // Firstly, we handle the cur_page is root situation
+    if (node.page_id_ == root_) {
+        root_ = child_page;
+        return;
+    }
+
+    // Secondly, we handle the cur_page is not root situation
+    bpnode<T, ORDER> &cur_node = node;
+    bpnode<T, ORDER> par_node = bpnode<T, ORDER>(node.parent_page_, folder_name_);
+    if (node.key_num_ == 0) {  // 100% True, just for filed setting
         // steal from left sibling
-        if (par_node.prev_page_ != -1) {
-            bpnode<T, ORDER> left_sibling = bpnode<T, ORDER>(par_node.prev_page_, folder_name_);
+        if (node.prev_page_ != -1) {
+            bpnode<T, ORDER> left_sibling = bpnode<T, ORDER>(node.prev_page_, folder_name_);
             if (left_sibling.key_num_ >= ceil(get_max_leaf_node_limit() / 2)) {
-                // transfer the maximum keys from the left sibling
-                par_node.keys_.emplace(par_node.keys_.begin(), left_sibling.keys_.back());
-                par_node.sub_ptrs_.emplace(par_node.sub_ptrs_.begin(),
-                                           left_sibling.sub_ptrs_.back());
-                par_node.key_num_++;
+                // steal
+                // search place
+                auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(),
+                                                left_sibling.keys_.back()) -
+                               par_node.keys_.begin();
+                // key round
+                // Note: Here maybe some problems when cur_node is not empty
+                // but in this case cur_node must be empty :-)
+                cur_node.keys_.emplace(cur_node.begin(), par_node.keys_[key_pos]);
+                cur_node.key_num_++;
+                par_node.keys_[key_pos] = left_sibling.keys_.back();
                 left_sibling.keys_.pop_back();
-                left_sibling.sub_ptrs_.pop_back();
                 left_sibling.key_num_--;
-                // update parent
-                if (par_node.parent_page_ != -1) {
-                    bpnode<T, ORDER> par_par_node =
-                        bpnode<T, ORDER>(par_node.parent_page_, folder_name_);
-                    auto key_pos =
-                        std::lower_bound(par_par_node.keys_.begin(), par_par_node.keys_.end(),
-                                         par_node.keys_.front()) -
-                        par_par_node.keys_.begin();
-                    par_par_node.keys_[key_pos] = left_sibling.keys_.back();
-                }
+                // ptr round
+                cur_node.sub_ptrs_.emplace(cur_node.sub_ptrs_.begin(),
+                                           left_sibling.sub_ptrs_.back());
+                left_sibling.sub_ptrs_.pop_back();
                 return;
             }
         }
         // steal from right sibling
-        if (par_node.next_page_ != -1) {
-            bpnode<T, ORDER> right_sibling = bpnode<T, ORDER>(par_node.next_page_, folder_name_);
+        if (node.next_page_ != -1) {
+            bpnode<T, ORDER> right_sibling = bpnode<T, ORDER>(node.next_page_, folder_name_);
             if (right_sibling.key_num_ >= ceil(get_max_leaf_node_limit() / 2)) {
-                // transfer the minimum keys from the right sibling
-                par_node.keys_.emplace_back(right_sibling.keys_.front());
-                par_node.sub_ptrs_.emplace_back(right_sibling.sub_ptrs_.front());
-                par_node.key_num_++;
+                // steal
+                // search place
+                auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(),
+                                                right_sibling.keys_.front()) -
+                               par_node.keys_.begin();
+                // key round
+                cur_node.keys_.emplace_back(par_node.keys_[key_pos]);
+                cur_node.key_num_++;
+                par_node.keys_[key_pos] = right_sibling.keys_.front();
                 right_sibling.keys_.erase(right_sibling.keys_.begin());
-                right_sibling.sub_ptrs_.erase(right_sibling.sub_ptrs_.begin());
                 right_sibling.key_num_--;
-                // update parent
-                if (par_node.parent_page_ != -1) {
-                    bpnode<T, ORDER> par_par_node =
-                        bpnode<T, ORDER>(par_node.parent_page_, folder_name_);
-                    auto key_pos =
-                        std::lower_bound(par_par_node.keys_.begin(), par_par_node.keys_.end(),
-                                         right_sibling.keys_.front()) -
-                        par_par_node.keys_.begin();
-                    par_par_node.keys_[key_pos] = right_sibling.keys_.front();
-                }
+                // ptr round
+                cur_node.sub_ptrs_.emplace_back(right_sibling.sub_ptrs_.front());
+                right_sibling.sub_ptrs_.erase(right_sibling.sub_ptrs_.begin());
                 return;
             }
         }
-        if (par_node.prev_page_ != -1) {
-            bpnode<T, ORDER> left_sibling = bpnode<T, ORDER>(par_node.prev_page_, folder_name_);
-            // mark
-            auto tmp_front_key = par_node.keys_.front();
+        // MERRRRRRRGE!!!!!
+        // merge with left sibling
+        if (node.prev_page_ != -1) {
+            bpnode<T, ORDER> left_sibling = bpnode<T, ORDER>(node.prev_page_, folder_name_);
             // merge
-            left_sibling.keys_.insert(left_sibling.keys_.end(), par_node.keys_.begin(),
-                                      par_node.keys_.end());
-            left_sibling.sub_ptrs.insert(left_sibling.sub_ptrs.end(), par_node.sub_ptrs.begin(),
-                                         par_node.sub_ptrs.end());
-            // wait... what happend here.
-        }  // merge with right sibling
-        else if (par_node.next_page_ != -1) {
+            auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(),
+                                            left_sibling.keys_.front()) -
+                           par_node.keys_.begin();
+            left_sibling.keys_.emplace_back(par_node.keys_[key_pos]);
+            left_sibling.key_num_++;
+            left_sibling.sub_ptrs_.emplace_back(child_page);
+            par_node.keys_.erase(par_node.keys_.begin() + key_pos);
+            par_node.sub_ptrs_.erase(par_node.sub_ptrs_.begin() + key_pos + 1);
+            par_node.key_num_--;
+            // update parent
+            if (par_node.key_num_ == 0) {
+                remove_update_parent(par_node, left_sibling.page_id_);
+            }
+        }
+        // merge with right sibling
+        else if (node.next_page_ != -1) {
+            bpnode<T, ORDER> right_sibling = bpnode<T, ORDER>(node.next_page_, folder_name_);
+            // merge
+            auto key_pos = std::lower_bound(par_node.keys_.begin(), par_node.keys_.end(),
+                                            right_sibling.keys_.back()) -
+                           par_node.keys_.begin();
+            right_sibling.keys_.emplace(right_sibling.keys_.begin(), par_node.keys_[key_pos]);
+            right_sibling.key_num_++;
+            right_sibling.sub_ptrs_.emplace(right_sibling.sub_ptrs_.begin(), child_page);
+            par_node.keys_.erase(par_node.keys_.begin() + key_pos);
+            par_node.sub_ptrs_.erase(par_node.sub_ptrs_.begin() + key_pos);
+            par_node.key_num_--;
+            // update parent
+            if (par_node.key_num_ == 0) {
+                remove_update_parent(par_node, right_sibling.page_id_);
+            }
         }
     }
 }
