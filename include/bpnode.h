@@ -35,6 +35,9 @@ class bpnode {
     // destructor
     ~bpnode();
 
+    // override [] operator
+    T &operator[](int);
+
     // override iostream
     std::istream &input(std::istream &is);
     std::ostream &output(std::ostream &os);
@@ -81,6 +84,19 @@ bpnode<T, ORDER>::~bpnode() {
     //    }
     file << *this;
     file.close();
+}
+
+template <class T, std::size_t ORDER>
+T &bpnode<T, ORDER>::operator[](int key) {
+    if (!is_leaf_) {
+        throw std::runtime_error("op[]: this is not a leaf node!");
+    }
+    auto real_idx = std::lower_bound(keys_.begin(), keys_.end(), key);
+    if (real_idx == keys_.end()) {
+        throw std::runtime_error("op[]: key not found!");
+        // only for debug use, this should never happen!
+    }
+    return values_[real_idx - keys_.begin()];
 }
 
 template <class T, std::size_t ORDER>

@@ -10,13 +10,10 @@
 using namespace std;
 
 int main() {
-    // bpnode<char, 5> root(1);
     bptree<int, 5> tree(std::string("tree1"));
-    int a = 1, b;
-    while (true) {
-        std::cin >> a >> b;
-        if (a == -1) break;
-        tree.insert(a, b);
-    }
+    // for (int i = 1; i <= 5; i++) {
+    //     tree.insert(i, i);
+    // }
+    tree.search(3, 4, [](auto i) { cout << i << " "; });
     return 0;
 }
