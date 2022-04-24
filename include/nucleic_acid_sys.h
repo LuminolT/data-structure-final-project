@@ -2,6 +2,7 @@
 #ifndef INCLUDE_NUCLEIC_ACID_SYS_H_
 
 #include <map>
+#include <queue>
 #include <vector>
 
 #include "bptree.h"
@@ -14,23 +15,23 @@ public:
     NucleicAcidSys();
 
     // Destructor
-    ~NucleicAcidSys() = default;
+    ~NucleicAcidSys();
 
-    // Inner Methods, for test use
+    // Add Person info, default with status not_examined
     void AddPerson(const id_t<8> &id, const std::string &name);
-    void AddExamine(const id_t<5> &id, const id_t<8> &person_id, int order);
 
-    // For doctors, continues doing the nucleic acid exam.
-    void ContinuousExamine(int booth_id);  // kxbbb we use x to denote the booth id
+    // person enqueue
+    void EnquePerson(const id_t<8> &id, const id_t<2> &queue_id);
+
+    // Add examine log, mode = 0 for single
+    void AddExamine(const id_t<2> &queue_id, bool mode = 0);
+    void AddExamine(const id_t<8> &person_id, const id_t<2> &queue_id, bool mode = 0);
 
     // Show the Queue
     void ShowQueue();
 
-    // Test tube storage
-    void TubeStorage(id_t<5> id);
-
     // Test tube result log
-    void TubeResultLog(id_t<5> id, int result);
+    void AddTubeResult(id_t<5> id, RESULT_STATUS result);
 
     // Show status of all people.
     void ShowStatus();
@@ -39,15 +40,19 @@ public:
     void ShowPersonalInfo(id_t<8> id, time_t time);
 
 protected:
-    std::vector<person_log> get_queue();
+    std::vector<std::pair<id_t<2>, person_log>> get_queue();
     std::map<PERSON_STATUS, std::vector<person_log>> get_status();
+    person_log get_person_info(id_t<8> id);
 
-    bptree<id_t<8>, person_log, 64> person;
-    bptree<id_t<6>, examine_log, 64> examine;
+    bptree<id_t<8>, person_log, 64> person;    // xxx_yyyy_z
+    bptree<id_t<8>, examine_log, 64> examine;  // k_bbbb_cc_d
 
     int single_serial;
     int multiple_serial;
-    int multiple_coutner;
+    int queue_num;
+    std::vector<int> queue_coutner;
+
+    std::vector<std::queue<id_t<8>>> logging_queue;
 };
 
 #define INCLUDE_NUCLEIC_ACID_SYS_H_

@@ -21,7 +21,8 @@ enum PERSON_STATUS {
     close_contact,
     secondary_close_contact,
     waiting_for_uploading,
-    queueing
+    queueing,
+    not_examined
 };
 
 std::istream &operator>>(std::istream &is, PERSON_STATUS &status);

@@ -13,14 +13,20 @@
 #include "bpnode.h"
 #include "bptree.h"
 #include "examine_log.h"
+#include "nucleic_acid_sys.h"
 #include "person_log.h"
 
 using namespace std;
 
 int main() {
-    person_log p1("00101011", "Luminolt");
-    examine_log e1("11111", "11111111", 1);
-    cout << p1;
-    cout << endl << e1;
+    NucleicAcidSys nasys;
+    // nasys.AddPerson("00000001", "Luminolt");
+    // nasys.AddPerson("00000002", "Uminoltl");
+
+    // nasys.AddExamine("00000001", "01");
+
+    nasys.ShowQueue();
+    std::cout << std::endl;
+    nasys.ShowStatus();
     return 0;
 }

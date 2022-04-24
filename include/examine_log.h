@@ -8,7 +8,6 @@
 
 #include "id_t.h"
 
-
 enum RESULT_STATUS { nega, posi, waitfor_uploading };
 
 std::istream &operator>>(std::istream &is, RESULT_STATUS &status);
@@ -20,6 +19,7 @@ std::ostream &operator<<(std::ostream &os, const RESULT_STATUS &status);
  */
 struct examine_log {
     id_t<5> id;            // k_bbbb k=0 denotes mixed
+    id_t<2> queue_id;      // denotes the queue id
     id_t<8> person_id;     // xxxyyyyz denotes the buiding, room and person
     int order;             // order of the person
     RESULT_STATUS status;  // result status

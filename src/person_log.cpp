@@ -15,14 +15,16 @@ std::istream &operator>>(std::istream &is, PERSON_STATUS &status) {
         status = positive;
     } else if (s == "suspicious") {
         status = suspicious;
-    } else if (s == "close_contact") {
+    } else if (s == "close_cont") {
         status = close_contact;
-    } else if (s == "secondary_close_contact") {
+    } else if (s == "sec_close") {
         status = secondary_close_contact;
-    } else if (s == "waiting_for_uploading") {
+    } else if (s == "wait_upload") {
         status = waiting_for_uploading;
     } else if (s == "queueing") {
         status = queueing;
+    } else if (s == "n_examined") {
+        status = not_examined;
     } else {
         throw std::runtime_error("invalid status");
     }
@@ -34,10 +36,11 @@ std::ostream &operator<<(std::ostream &os, const PERSON_STATUS &status) {
     case negative: os << "negative"; break;
     case positive: os << "positive"; break;
     case suspicious: os << "suspicious"; break;
-    case close_contact: os << "close_contact"; break;
-    case secondary_close_contact: os << "secondary_close_contact"; break;
-    case waiting_for_uploading: os << "waiting_for_uploading"; break;
+    case close_contact: os << "close_cont"; break;
+    case secondary_close_contact: os << "sec_close"; break;
+    case waiting_for_uploading: os << "wait_upload"; break;
     case queueing: os << "queueing"; break;
+    case not_examined: os << "n_examined"; break;
     default: throw std::runtime_error("invalid status");
     }
     return os;

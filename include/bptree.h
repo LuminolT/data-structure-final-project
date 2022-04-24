@@ -139,7 +139,7 @@ void bptree<KT, VT, ORDER>::insert(KT key, VT value) {
     if (cur_node.key_num_ >= get_max_leaf_node_limit()) {
         // NOW we have to split the nodes
         bpnode<KT, VT, ORDER> new_node = bpnode<KT, VT, ORDER>(++page_id_counter_, folder_name_);
-        new_node.keys_ = std::vector<int>(
+        new_node.keys_ = std::vector<KT>(
             cur_node.keys_.begin() + ceil(get_max_leaf_node_limit() / 2), cur_node.keys_.end());
         new_node.values_ = std::vector<VT>(
             cur_node.values_.begin() + ceil(get_max_leaf_node_limit() / 2), cur_node.values_.end());
@@ -212,8 +212,8 @@ void bptree<KT, VT, ORDER>::insert_update_parent(page_id_t par_page_id, page_id_
         bpnode<KT, VT, ORDER> right_sib_node =
             bpnode<KT, VT, ORDER>(++page_id_counter_, folder_name_);
         right_sib_node.keys_ =
-            std::vector<int>(par_node.keys_.begin() + floor(get_max_internal_node_limit() / 2 + 1),
-                             par_node.keys_.end());
+            std::vector<KT>(par_node.keys_.begin() + floor(get_max_internal_node_limit() / 2 + 1),
+                            par_node.keys_.end());
         right_sib_node.sub_ptrs_ = std::vector<page_id_t>(
             par_node.sub_ptrs_.begin() + floor(get_max_internal_node_limit() / 2 + 1),
             par_node.sub_ptrs_.end());
@@ -279,18 +279,19 @@ void bptree<KT, VT, ORDER>::range_search(KT key_start, KT key_end, std::function
     // Get the key position
     auto key_pos = std::lower_bound(cur_node.keys_.begin(), cur_node.keys_.end(), key_start) -
                    cur_node.keys_.begin();
-    if (key_pos >= cur_node.key_num_ || cur_node.keys_[key_pos] != key_start) {
+    if (key_pos >= cur_node.key_num_ || cur_node.keys_[key_pos] < key_start) {
         throw std::runtime_error("search: key not found!");
     }
     if (mode == 1) {
-        func(cur_node.keys_[key_pos]);
+        func(cur_node.values_[key_pos]);
     } else {
         // Now we need a loop
         while (cur_node.keys_[key_pos] <= key_end) {
-            func(cur_node.keys_[key_pos]);
+            func(cur_node.values_[key_pos]);
             key_pos++;
+            // go to next leaf
             if (key_pos == cur_node.key_num_) {
-                // go to next leaf
+                // loop til the end~~~
                 if (cur_node.next_page_ == -1) {
                     break;
                 }

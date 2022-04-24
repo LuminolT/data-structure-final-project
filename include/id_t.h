@@ -7,8 +7,11 @@
 #ifndef INCLUDE_ID_T_H_
 #define INCLUDE_ID_T_H_
 
+#include <cmath>
+#include <cstring>
 #include <iostream>
 #include <string>
+
 
 /*!
  * @brief id_t class
@@ -24,6 +27,7 @@ public:
     // argument constructor
     id_t(std::string str);
     id_t(int num);
+    id_t(const char *str);
 
     // copy constructor
     id_t(const id_t &id) = default;
@@ -74,10 +78,18 @@ id_t<LENGTH>::id_t(std::string str) {
 
 template <int LENGTH>
 id_t<LENGTH>::id_t(int num) {
-    if (num < 0 || num > (1 << LENGTH)) {
+    if (num < 0 || num > std::pow(10, LENGTH)) {
         throw std::invalid_argument("id_t: invalid number");
     }
     value_ = num;
+}
+
+template <int LENGTH>
+id_t<LENGTH>::id_t(const char *str) {
+    if (strlen(str) != LENGTH) {
+        throw std::invalid_argument("id_t: invalid string length");
+    }
+    value_ = std::atoi(str);
 }
 
 template <int LENGTH>

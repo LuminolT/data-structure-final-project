@@ -13,7 +13,7 @@ std::istream &operator>>(std::istream &is, RESULT_STATUS &status) {
         status = nega;
     } else if (s == "positive") {
         status = posi;
-    } else if (s == "waiting_for_uploading") {
+    } else if (s == "wait_upload") {
         status = waitfor_uploading;
     } else {
         throw std::runtime_error("invalid status");
@@ -25,17 +25,18 @@ std::ostream &operator<<(std::ostream &os, const RESULT_STATUS &status) {
     switch (status) {
     case nega: os << "negative"; break;
     case posi: os << "positive"; break;
-    case waitfor_uploading: os << "waiting_for_uploading"; break;
+    case waitfor_uploading: os << "wait_upload"; break;
     default: throw std::runtime_error("invalid status");
     }
     return os;
 }
 
 std::istream &examine_log::input(std::istream &is) {
-    is >> id >> person_id >> order >> status >> update_time;
+    is >> id >> queue_id >> person_id >> order >> status >> update_time;
     return is;
 }
 std::ostream &examine_log::output(std::ostream &os) {
-    os << id << " " << person_id << " " << order << " " << status << " " << update_time;
+    os << id << ' ' << queue_id << ' ' << person_id << ' ' << order << ' ' << status << ' '
+       << update_time;
     return os;
 }
