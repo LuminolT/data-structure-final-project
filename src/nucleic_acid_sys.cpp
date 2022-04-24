@@ -162,23 +162,37 @@ void NucleicAcidSys::AddTubeResult(id_t<5> id, RESULT_STATUS result) {
             }
         });
     }
+    std::vector<id_t<8>> close_guys;
+    std::vector<id_t<8>> sec_close_guys;
     if (flag) {
         //并且对于确诊人员，其同一栋楼人员以及测试时排在他前面的10人和后面的1人设置为密接者；密接者的同一栋楼人员为次密接者。
         auto posi_guy = person_ids[0];
         auto posi_guy_queue = queue_id;
         auto order = orders[0];
         auto building_id = std::string(posi_guy).substr(0, 3);
-        person.search(building_id + "00000", building_id + "99999", [&posi_guy](person_log &log) {
-            if (log.id != posi_guy) {
-                log.status = close_contact;
-                log.update_time = time(NULL);
-            }
-        });
+        try {
+            person.search(building_id + "00000", building_id + "99999",
+                          [&posi_guy, &close_guys](person_log &log) {
+                              if (log.id != posi_guy) {
+                                  close_guys.emplace_back(log.id);
+                              }
+                          });
+        } catch (std::runtime_error &e) {
+            ;
+        }
         std::vector<id_t<8>> close_ids;
-        auto start = std::string(id_t<5>((int(id) - 10 > 0 ? int(id) - 10 : 0))) + "000";
-        auto end = std::string(id_t<5>(int(id + 1))) + "009";
-        examine.search(start, end,
-                       [&close_ids](examine_log &log) { close_ids.emplace_back(log.person_id); });
+        auto start_num = int(id) - 1 > 10000 ? int(id) - 1 : 10000;
+        auto end_num = int(id) + 1 < 99999 ? int(id) + 1 : 99999;
+        auto start = std::to_string(start_num) + "000";
+        auto end = std::to_string(end_num) + "009";
+        // queue search
+        try {
+            examine.search(start, end, [&close_ids](examine_log &log) {
+                close_ids.emplace_back(log.person_id);
+            });
+        } catch (std::runtime_error &e) {
+            ;
+        }
         int pos_posi_guy = 0;
         while (close_ids[pos_posi_guy] != posi_guy) {
             pos_posi_guy++;
@@ -189,19 +203,41 @@ void NucleicAcidSys::AddTubeResult(id_t<5> id, RESULT_STATUS result) {
         }
         sec_close_ids.emplace_back(close_ids[pos_posi_guy + 1]);
         for (auto &item : sec_close_ids) {
-            person.search(item, [this](person_log &log) {
+            try {
+                person.search(item, [this, &close_guys, &sec_close_guys](person_log &log) {
+                    close_guys.emplace_back(log.id);
+                    auto posi_guy = log.id;
+                    auto building_id = std::string(posi_guy).substr(0, 3);
+                    person.search(building_id + "00000", building_id + "99999",
+                                  [&posi_guy, &sec_close_guys](person_log &log) {
+                                      if (log.id != posi_guy) {
+                                          sec_close_guys.emplace_back(log.id);
+                                      }
+                                  });
+                });
+            } catch (std::runtime_error &e) {
+                ;
+            }
+        }
+    }
+    for (auto &item : close_guys) {
+        try {
+            person.search(item, [this, &queue_id, &orders](person_log &log) {
                 log.status = close_contact;
                 log.update_time = time(NULL);
-                auto posi_guy = log.id;
-                auto building_id = std::string(posi_guy).substr(0, 3);
-                person.search(building_id + "00000", building_id + "99999",
-                              [&posi_guy](person_log &log) {
-                                  if (log.id != posi_guy) {
-                                      log.status = secondary_close_contact;
-                                      log.update_time = time(NULL);
-                                  }
-                              });
             });
+        } catch (std::runtime_error &e) {
+            ;
+        }
+    }
+    for (auto &item : sec_close_guys) {
+        try {
+            person.search(item, [this, &queue_id, &orders](person_log &log) {
+                log.status = secondary_close_contact;
+                log.update_time = time(NULL);
+            });
+        } catch (std::runtime_error &e) {
+            ;
         }
     }
 }
