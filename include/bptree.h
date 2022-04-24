@@ -50,7 +50,7 @@ public:
     }
 
     // Search <st~ed> in the B+ tree and call the function
-    void search(int st, int ed, std::function<void(VT &)> func, int mode = 0) {
+    void search(KT st, KT ed, std::function<void(VT &)> func, int mode = 0) {
         range_search(st, ed, func, mode);
     }
 

@@ -1,3 +1,8 @@
+/*!
+ * @file examine_log.h
+ * @author Luminolt
+ */
+
 #ifndef INCLUDE_EXAMINE_LOG_H_
 #define INCLUDE_EXAMINE_LOG_H_
 
